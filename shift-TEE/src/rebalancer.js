@@ -1,6 +1,6 @@
 import { ethers } from "ethers";
-import { initUniswapV3PositionManager, UniswapV3PositionManager } from "../providers/uniswapPositionManger";
-import { getTickRange } from ".";
+import { initUniswapPositionManager } from "../providers/uniswapPositionManger";
+import { getTickRange } from "./utils";
 
 
 
@@ -171,10 +171,10 @@ export async function rebalance(
  * Convenience function that initializes position manager and calls rebalance
  */
 export async function rebalanceWithRuntime(
-    runtime, // Your IAgentRuntime type
+    config, // Your IAgentRuntime type
     addresses,
     params
 ) {
-    const positionManager = await initUniswapV3PositionManager(runtime);
+    const positionManager = await initUniswapPositionManager(config);
     return await rebalance(positionManager, addresses, params);
 }

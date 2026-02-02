@@ -6,7 +6,7 @@ import { WETHABI, UNIABI, USDCABI, NPositionManagerABI, PositionFactoryABI, Rout
 const MAX_UINT_128 = BigInt(2) ** BigInt(128) - BigInt(1);
 
 
-export class UniswapV3PositionManager {
+export class UniswapPositionManager {
     wallet;
     nftManager;
     provider;
@@ -272,3 +272,63 @@ export class UniswapV3PositionManager {
 
 // Export types and constants
 export { MAX_UINT_128 };
+
+/**
+ * Initialize Uniswap V3 Position Manager
+ */
+export const initUniswapPositionManager = async (
+    config,
+    nftManagerAddress
+) => {
+    const privateKey = config.privateKey;
+    if (!privateKey) {
+        throw new Error("ETHEREUM_PRIVATE_KEY is missing");
+    }
+    
+    const ethProviderUrl =
+        config.providerUrl ||
+        testnetNetworks['sepolia'].rpcUrl;
+    
+    const provider = new ethers.JsonRpcProvider(ethProviderUrl);
+    
+    // Default to mainnet Uniswap V3 NFT Position Manager if not provided
+    const defaultNftManager = "0x1238536071E1c677A632429e3655c799b22cDA52";
+    const nftManager = nftManagerAddress || defaultNftManager;
+    
+    return new UniswapPositionManager(privateKey, provider, nftManager);
+};
+
+/**
+ * Provider for getting position information
+ */
+export const uniswapPositionProvider = {
+    async get(
+        config,
+        _message,
+        _state
+    ) {
+        try {
+            const positionManager = await initUniswapPositionManager(config);
+            const positions = await positionManager.getAllUserPositions();
+            
+            if (positions.length === 0) {
+                return `Uniswap V3 Positions: None found for ${positionManager.getAddress()}`;
+            }
+
+            let result = `Uniswap V3 Positions for ${positionManager.getAddress()}:\n`;
+            
+            for (const positionId of positions) {
+                const positionInfo = await positionManager.getPositionInfo(positionId);
+                result += `\nPosition ID: ${positionId}\n`;
+                result += `  Liquidity: ${positionInfo.liquidity}\n`;
+                result += `  Fee Tier: ${positionInfo.fee / 10000}%\n`;
+                result += `  Tick Range: ${positionInfo.tickLower} to ${positionInfo.tickUpper}\n`;
+                result += `  Tokens Owed: ${ethers.formatUnits(positionInfo.tokensOwed0, 18)} / ${ethers.formatUnits(positionInfo.tokensOwed1, 6)}\n`;
+            }
+            
+            return result;
+        } catch (error) {
+            return `Error fetching Uniswap positions: ${error}`;
+        }
+    },
+};

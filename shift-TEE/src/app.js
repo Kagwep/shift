@@ -1,55 +1,211 @@
 import fs from 'node:fs/promises';
-import figlet from 'figlet';
-import { IExecDataProtectorDeserializer } from '@iexec/dataprotector-deserializer';
+import path from 'path';
+import { UniswapPositionManager } from "./UniswapV3PositionManager";
+import { VolatilityPredictionAction } from "./VolatilityPredictionAction";
+import { rebalance } from "./rebalancer";
+import { ADDRESSES } from "./utils/tokens";
 
 const main = async () => {
-  const { IEXEC_OUT } = process.env;
-
+  const { IEXEC_OUT, IEXEC_IN, IEXEC_DATASET_FILENAME } = process.env;
   let computedJsonObj = {};
-
+  
   try {
-    let messages = [];
-
-    // Example of process.argv:
-    // [ '/usr/local/bin/node', '/app/src/app.js', 'Bob' ]
+    console.log('🚀 Starting Uniswap Rebalancer iApp');
+    
+    // ==========================================
+    // 1. Get PUBLIC ARGS (from command line)
+    // ==========================================
+    // User runs: iexec app run --args "LINKUSDT auto_optimize moderate 0x287B..."
     const args = process.argv.slice(2);
-    console.log(`Received ${args.length} args`);
-    messages.push(args.join(' '));
-
+    
+    const tokenPair = args[0] || 'LINKUSDT';
+    const action = args[1] || 'auto_optimize';
+    const volatilityThreshold = args[2] || 'moderate';
+    const poolAddress = args[3] || '0x287B0e934ed0439E2a7b1d5F0FC25eA2c24b64f7';
+    
+    console.log(`📊 Config from args:`);
+    console.log(`   Token Pair: ${tokenPair}`);
+    console.log(`   Action: ${action}`);
+    console.log(`   Threshold: ${volatilityThreshold}`);
+    console.log(`   Pool: ${poolAddress}`);
+    
+    // ==========================================
+    // 2. Get PRIVATE KEY from PROTECTED DATA
+    // ==========================================
+    // Protected data is decrypted and available as files in IEXEC_IN
+    let privateKey;
+    let providerUrl;
+    let chainId;
+    
     try {
-      const deserializer = new IExecDataProtectorDeserializer();
-      // The protected data mock created for the purpose of this Hello World journey
-      // contains an object with a key "secretText" which is a string
-      const protectedText = await deserializer.getValue('secretText', 'string');
-      console.log('Found a protected data');
-      messages.push(protectedText);
-    } catch (e) {
-      console.log('It seems there is an issue with your protected data:', e);
+      const dataPath = path.join(IEXEC_IN, IEXEC_DATASET_FILENAME);
+      const protectedData = JSON.parse(await fs.readFile(dataPath, 'utf8'));
+      
+      privateKey = protectedData.privateKey;
+      providerUrl = protectedData.providerUrl || 'https://eth-sepolia.g.alchemy.com/v2/demo';
+      chainId = parseInt(protectedData.chainId || '11155111');
+      
+      console.log('✅ Protected data loaded');
+      console.log(`🔗 Chain ID: ${chainId}`);
+    } catch (error) {
+      throw new Error(`Failed to load protected data: ${error.message}`);
     }
-
-    // Transform input text into an ASCII Art text
-    const asciiArtText = figlet.textSync(
-      `Hello, ${messages.join(' ') || 'World'}!`
+    
+    // ==========================================
+    // 3. Get VOLATILITY PREDICTION
+    // ==========================================
+    const predictor = new VolatilityPredictionAction();
+    const prediction = await predictor.fetchVolatilityPrediction(tokenPair, 15);
+    
+    const currentVolatility = prediction.prediction.predicted_volatility_5d;
+    console.log(`📈 Current volatility: ${currentVolatility.toFixed(2)}%`);
+    console.log(`📊 Risk level: ${prediction.prediction.volatility_level}`);
+    
+    // ==========================================
+    // 4. CHECK IF REBALANCING NEEDED
+    // ==========================================
+    const thresholdValue = getThreshold(volatilityThreshold);
+    
+    if (currentVolatility < thresholdValue && action !== 'exit_position') {
+      console.log(`ℹ️  No rebalancing needed (${currentVolatility.toFixed(2)}% < ${thresholdValue}%)`);
+      
+      const result = {
+        success: true,
+        rebalanceNeeded: false,
+        reason: `Volatility (${currentVolatility.toFixed(2)}%) below threshold (${thresholdValue}%)`,
+        volatility: {
+          current: currentVolatility,
+          threshold: thresholdValue,
+          level: prediction.prediction.volatility_level
+        },
+        timestamp: new Date().toISOString()
+      };
+      
+      await fs.writeFile(
+        `${IEXEC_OUT}/result.json`,
+        JSON.stringify(result, null, 2)
+      );
+      
+      computedJsonObj = {
+        'deterministic-output-path': `${IEXEC_OUT}/result.json`,
+      };
+      
+      await fs.writeFile(
+        `${IEXEC_OUT}/computed.json`,
+        JSON.stringify(computedJsonObj)
+      );
+      
+      return;
+    }
+    
+    // ==========================================
+    // 5. EXECUTE REBALANCE
+    // ==========================================
+    console.log(`🔄 Volatility above threshold - executing rebalance...`);
+    
+    // Initialize position manager with private key from protected data
+    const positionManager = new UniswapPositionManager({
+      privateKey,
+      providerUrl
+    });
+    
+    const walletAddress = positionManager.getAddress();
+    console.log(`👛 Wallet: ${walletAddress}`);
+    
+    // Get contract addresses
+    const addresses = getContractAddresses(chainId, tokenPair, poolAddress);
+    
+    // Calculate position amounts based on volatility
+    const amounts = calculateAmounts(action, currentVolatility);
+    
+    console.log(`💰 Position amounts:`);
+    console.log(`   Token A: ${amounts.tokenA_amount.toString()}`);
+    console.log(`   Token B: ${amounts.tokenB_amount.toString()}`);
+    
+    // Prepare rebalance parameters
+    const rebalanceParams = {
+      tokenA_amount: amounts.tokenA_amount,
+      tokenB_amount: amounts.tokenB_amount,
+      realized_vol: prediction.prediction.features.realized_vol,
+      predictionResponse: prediction,
+      confidenceMultiplier: 1.96
+    };
+    
+    // Execute rebalance
+    const result = await rebalance(positionManager, addresses, rebalanceParams);
+    
+    console.log(`✅ Rebalance ${result.success ? 'completed' : 'failed'}!`);
+    if (result.closedPositions?.length > 0) {
+      console.log(`🔄 Closed positions: ${result.closedPositions.join(', ')}`);
+    }
+    if (result.newPositionTx) {
+      console.log(`📝 New position tx: ${result.newPositionTx.hash}`);
+    }
+    
+    // ==========================================
+    // 6. WRITE RESULTS
+    // ==========================================
+    const output = {
+      success: result.success,
+      wallet: walletAddress,
+      config: {
+        tokenPair,
+        action,
+        volatilityThreshold,
+        poolAddress
+      },
+      volatility: {
+        current: currentVolatility,
+        threshold: thresholdValue,
+        level: prediction.prediction.volatility_level,
+        annualized: prediction.prediction.annualized_volatility
+      },
+      rebalance: {
+        closedPositions: result.closedPositions?.map(p => p.toString()) || [],
+        newPositionTx: result.newPositionTx?.hash || null,
+        tickRange: result.tickRange || null,
+        message: result.message || 'Success'
+      },
+      timestamp: new Date().toISOString()
+    };
+    
+    await fs.writeFile(
+      `${IEXEC_OUT}/rebalance-result.json`,
+      JSON.stringify(output, null, 2)
     );
-
-    // Write result to IEXEC_OUT
-    await fs.writeFile(`${IEXEC_OUT}/result.txt`, asciiArtText);
-
-    // Build the "computed.json" object
+    
+    // Also create a human-readable report
+    const report = formatReport(output);
+    await fs.writeFile(
+      `${IEXEC_OUT}/rebalance-report.txt`,
+      report
+    );
+    
     computedJsonObj = {
-      'deterministic-output-path': `${IEXEC_OUT}/result.txt`,
+      'deterministic-output-path': `${IEXEC_OUT}/rebalance-result.json`,
     };
-  } catch (e) {
-    // Handle errors
-    console.log(e);
-
-    // Build the "computed.json" object with an error message
+    
+  } catch (error) {
+    console.error('❌ Error:', error);
+    
+    const errorOutput = {
+      success: false,
+      error: error.message,
+      stack: error.stack,
+      timestamp: new Date().toISOString()
+    };
+    
+    await fs.writeFile(
+      `${IEXEC_OUT}/error.json`,
+      JSON.stringify(errorOutput, null, 2)
+    );
+    
     computedJsonObj = {
-      'deterministic-output-path': IEXEC_OUT,
-      'error-message': 'Oops something went wrong',
+      'deterministic-output-path': `${IEXEC_OUT}/error.json`,
+      'error-message': error.message
     };
+    
   } finally {
-    // Save the "computed.json" file
     await fs.writeFile(
       `${IEXEC_OUT}/computed.json`,
       JSON.stringify(computedJsonObj)
@@ -57,92 +213,13 @@ const main = async () => {
   }
 };
 
-main();
+// ==========================================
+// HELPER FUNCTIONS
+// ==========================================
 
-
-// here we want to use the rebalncer or prediction lets first start with rebalncer
-
-// to use it in nrmal usage should be something like 
-
-// Simple example - no agent, just direct usage
-
-import { ethers } from "ethers";
-import { UniswapV3PositionManager } from "./UniswapV3PositionManager";
-import { VolatilityPredictionAction } from "./VolatilityPredictionAction";
-import { rebalance } from "./rebalancer";
-import { ADDRESSES } from "./addresses"; // or wherever your ADDRESSES object is
-
-async function simpleRebalance() {
-    // 1. Your inputs (what you want)
-    const config = {
-        privateKey: "0x...",
-        providerUrl: "https://eth-sepolia.g.alchemy.com/v2/YOUR-KEY",
-        chainId: 11155111, // Sepolia
-        tokenPair: "LINKUSDT",
-        action: "auto_optimize",  // or 'reduce_exposure', 'increase_exposure', 'exit_position'
-        volatilityThreshold: "moderate" // or 'low', 'high', 'extreme'
-    };
-    
-    // 2. Get volatility prediction
-    const predictor = new VolatilityPredictionAction();
-    const prediction = await predictor.fetchVolatilityPrediction("LINKUSDT", 15);
-    
-    console.log("Current volatility:", prediction.prediction.predicted_volatility_5d);
-    
-    // 3. Check if we should rebalance
-    const thresholdValue = getThreshold(config.volatilityThreshold);
-    const currentVolatility = prediction.prediction.predicted_volatility_5d;
-    
-    if (currentVolatility < thresholdValue && config.action !== 'exit_position') {
-        console.log(`No rebalancing needed (${currentVolatility}% < ${thresholdValue}%)`);
-        return;
-    }
-    
-    console.log(`Rebalancing needed! (${currentVolatility}% > ${thresholdValue}%)`);
-    
-    // 4. Initialize position manager
-    const positionManager = new UniswapV3PositionManager({
-        privateKey: config.privateKey,
-        providerUrl: config.providerUrl
-    });
-    
-    // 5. Get contract addresses from ADDRESSES
-    const addresses = getContractAddresses(config.chainId, config.tokenPair);
-    
-    // 6. Calculate amounts based on volatility
-    const amounts = calculateAmounts(config.action, currentVolatility);
-    
-    // 7. Execute rebalance
-    const rebalanceParams = {
-        tokenA_amount: amounts.tokenA_amount,
-        tokenB_amount: amounts.tokenB_amount,
-        realized_vol: prediction.prediction.features.realized_vol,
-        predictionResponse: prediction,
-        confidenceMultiplier: 1.96
-    };
-    
-    const result = await rebalance(positionManager, addresses, rebalanceParams);
-    
-    console.log("Rebalance result:", result);
-    console.log("Closed positions:", result.closedPositions);
-    if (result.newPositionTx) {
-        console.log("New position tx:", result.newPositionTx.hash);
-    }
-}
-
-// Helper: Get contract addresses from ADDRESSES object
-function getContractAddresses(chainId, tokenPair) {
+function getContractAddresses(chainId, tokenPair, poolAddress) {
     const getTokenAddresses = (pair) => {
         switch (pair.toUpperCase()) {
-            case 'UNIUSDT':
-            case 'LINKUSDT':
-            case 'AAVEUSDT': 
-            case 'SUSHIUSDT':
-            case '1INCHUSDT':
-                return {
-                    tokenA: ADDRESSES.UNI[chainId],
-                    tokenB: ADDRESSES.USDC[chainId],
-                };
             case 'UNIWETH':
                 return {
                     tokenA: ADDRESSES.UNI[chainId],
@@ -162,11 +239,10 @@ function getContractAddresses(chainId, tokenPair) {
         nftManager: ADDRESSES.NonfungiblePositionManager[chainId],
         tokenA: tokens.tokenA,
         tokenB: tokens.tokenB,
-        pool: "0x287B0e934ed0439E2a7b1d5F0FC25eA2c24b64f7" // Your existing pool address
+        pool: poolAddress
     };
 }
 
-// Helper: Get threshold percentage
 function getThreshold(level) {
     const thresholds = {
         'low': 2.0,
@@ -177,7 +253,6 @@ function getThreshold(level) {
     return thresholds[level.toLowerCase()] || 5.0;
 }
 
-// Helper: Calculate position amounts
 function calculateAmounts(action, volatility) {
     const baseUNI = BigInt("100000000000000");  // 0.0001 UNI
     const baseWETH = BigInt("1000000000000000"); // 0.001 WETH
@@ -189,20 +264,14 @@ function calculateAmounts(action, volatility) {
                 tokenA_amount: baseUNI - (baseUNI * BigInt(Math.floor(reduction * 100)) / BigInt(100)),
                 tokenB_amount: baseWETH - (baseWETH * BigInt(Math.floor(reduction * 100)) / BigInt(100))
             };
-            
         case 'increase_exposure':
             const increase = Math.max(1.2, 2 - volatility / 10);
             return {
                 tokenA_amount: baseUNI * BigInt(Math.floor(increase * 100)) / BigInt(100),
                 tokenB_amount: baseWETH * BigInt(Math.floor(increase * 100)) / BigInt(100)
             };
-            
         case 'exit_position':
-            return {
-                tokenA_amount: BigInt(0),
-                tokenB_amount: BigInt(0)
-            };
-            
+            return { tokenA_amount: BigInt(0), tokenB_amount: BigInt(0) };
         default: // auto_optimize
             if (volatility > 15) {
                 return {
@@ -214,14 +283,44 @@ function calculateAmounts(action, volatility) {
                     tokenA_amount: baseUNI * BigInt(125) / BigInt(100),
                     tokenB_amount: baseWETH * BigInt(125) / BigInt(100)
                 };
-            } else {
-                return {
-                    tokenA_amount: baseUNI,
-                    tokenB_amount: baseWETH
-                };
             }
+            return { tokenA_amount: baseUNI, tokenB_amount: baseWETH };
     }
 }
 
-// Run it
-simpleRebalance();
+function formatReport(output) {
+    return `
+═══════════════════════════════════════════════════════════
+  UNISWAP V3 POSITION REBALANCE REPORT
+═══════════════════════════════════════════════════════════
+
+Timestamp: ${output.timestamp}
+Wallet: ${output.wallet}
+Success: ${output.success ? '✅ YES' : '❌ NO'}
+
+CONFIGURATION
+-------------------------------------------------------------------
+Token Pair: ${output.config.tokenPair}
+Action: ${output.config.action}
+Volatility Threshold: ${output.config.volatilityThreshold}
+Pool Address: ${output.config.poolAddress}
+
+VOLATILITY ANALYSIS
+-------------------------------------------------------------------
+Current Volatility: ${output.volatility.current.toFixed(2)}%
+Threshold: ${output.volatility.threshold.toFixed(2)}%
+Risk Level: ${output.volatility.level}
+Annualized: ${output.volatility.annualized.toFixed(2)}%
+
+REBALANCE RESULTS
+-------------------------------------------------------------------
+Closed Positions: ${output.rebalance.closedPositions.join(', ') || 'None'}
+New Position TX: ${output.rebalance.newPositionTx || 'N/A'}
+Tick Range: ${output.rebalance.tickRange ? `${output.rebalance.tickRange[0]} to ${output.rebalance.tickRange[1]}` : 'N/A'}
+Message: ${output.rebalance.message}
+
+═══════════════════════════════════════════════════════════
+`;
+}
+
+main();

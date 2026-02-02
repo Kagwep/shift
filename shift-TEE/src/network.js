@@ -1,4 +1,4 @@
-import { NetworkInfo } from "../types";
+
 
   // Network configurations for testnet
   export const testnetNetworks = {
