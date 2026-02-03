@@ -129,6 +129,8 @@ const main = async () => {
     console.log(`💰 Position amounts:`);
     console.log(`   Token A: ${amounts.tokenA_amount.toString()}`);
     console.log(`   Token B: ${amounts.tokenB_amount.toString()}`);
+
+    console.log(prediction)
     
     // Prepare rebalance parameters
     const rebalanceParams = {
