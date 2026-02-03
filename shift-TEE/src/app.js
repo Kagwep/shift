@@ -124,7 +124,7 @@ const main = async () => {
     const addresses = getContractAddresses(chainId, tokenPair, poolAddress);
     
     // Calculate position amounts based on volatility
-    const amounts = calculateAmounts(action, currentVolatility);
+    const amounts = calculatePositionAmounts(action, currentVolatility);
     
     console.log(`💰 Position amounts:`);
     console.log(`   Token A: ${amounts.tokenA_amount.toString()}`);
@@ -263,40 +263,96 @@ function getThreshold(level) {
     return thresholds[level.toLowerCase()] || 5.0;
 }
 
-function calculateAmounts(action, volatility) {
-    const baseUNI = BigInt("100000000000000");  // 0.0001 UNI
-    const baseWETH = BigInt("1000000000000000"); // 0.001 WETH
-    
-    switch (action.toLowerCase()) {
-        case 'reduce_exposure':
-            const reduction = Math.min(volatility / 20, 0.5);
-            return {
-                tokenA_amount: baseUNI - (baseUNI * BigInt(Math.floor(reduction * 100)) / BigInt(100)),
-                tokenB_amount: baseWETH - (baseWETH * BigInt(Math.floor(reduction * 100)) / BigInt(100))
-            };
-        case 'increase_exposure':
-            const increase = Math.max(1.2, 2 - volatility / 10);
-            return {
-                tokenA_amount: baseUNI * BigInt(Math.floor(increase * 100)) / BigInt(100),
-                tokenB_amount: baseWETH * BigInt(Math.floor(increase * 100)) / BigInt(100)
-            };
-        case 'exit_position':
-            return { tokenA_amount: BigInt(0), tokenB_amount: BigInt(0) };
-        default: // auto_optimize
-            if (volatility > 15) {
+       // Calculate position amounts based on action type -
+function  calculatePositionAmounts(
+        action,
+        currentVolatility,
+        baseUNIAmount = ethers.parseUnits("0.0001", 18), // 0.0001 UNI base
+        baseWETHAmount = ethers.parseUnits("0.001", 18)   // 0.001 WETH base
+    ) {
+        switch (action.toLowerCase()) {
+            case 'reduce_exposure':
+                // Reduce position size based on volatility
+                const reductionFactor = Math.min(currentVolatility / 20, 0.5); // Max 50% reduction
                 return {
-                    tokenA_amount: baseUNI * BigInt(75) / BigInt(100),
-                    tokenB_amount: baseWETH * BigInt(75) / BigInt(100)
+                    tokenA_amount: baseUNIAmount - (baseUNIAmount * BigInt(Math.floor(reductionFactor * 100)) / BigInt(100)),
+                    tokenB_amount: baseWETHAmount - (baseWETHAmount * BigInt(Math.floor(reductionFactor * 100)) / BigInt(100))
                 };
-            } else if (volatility < 5) {
+               
+            case 'increase_exposure':
+                // Increase position size (but be careful with high volatility)
+                const increaseFactor = Math.max(1.2, 2 - currentVolatility / 10);
                 return {
-                    tokenA_amount: baseUNI * BigInt(125) / BigInt(100),
-                    tokenB_amount: baseWETH * BigInt(125) / BigInt(100)
+                    tokenA_amount: baseUNIAmount * BigInt(Math.floor(increaseFactor * 100)) / BigInt(100),
+                    tokenB_amount: baseWETHAmount * BigInt(Math.floor(increaseFactor * 100)) / BigInt(100)
                 };
-            }
-            return { tokenA_amount: baseUNI, tokenB_amount: baseWETH };
+               
+            case 'exit_position':
+                // Close position (set amounts to 0 for new position)
+                return {
+                    tokenA_amount: BigInt(0),
+                    tokenB_amount: BigInt(0)
+                };
+               
+            case 'auto_optimize':
+            default:
+                // Auto-optimize based on volatility
+                if (currentVolatility > 15) {
+                    // High volatility: reduce exposure
+                    return {
+                        tokenA_amount: baseUNIAmount * BigInt(75) / BigInt(100), // 75% of base
+                        tokenB_amount: baseWETHAmount * BigInt(75) / BigInt(100)
+                    };
+                } else if (currentVolatility < 5) {
+                    // Low volatility: increase exposure
+                    return {
+                        tokenA_amount: baseUNIAmount * BigInt(125) / BigInt(100), // 125% of base
+                        tokenB_amount: baseWETHAmount * BigInt(125) / BigInt(100)
+                    };
+                } else {
+                    // Moderate volatility: maintain base amount
+                    return {
+                        tokenA_amount: baseUNIAmount,
+                        tokenB_amount: baseWETHAmount
+                    };
+                }
+        }
     }
-}
+
+// function calculateAmounts(action, volatility) {
+//     const baseUNI = BigInt("100000000000000");  // 0.0001 UNI
+//     const baseWETH = BigInt("1000000000000000"); // 0.001 WETH
+    
+//     switch (action.toLowerCase()) {
+//         case 'reduce_exposure':
+//             const reduction = Math.min(volatility / 20, 0.5);
+//             return {
+//                 tokenA_amount: baseUNI - (baseUNI * BigInt(Math.floor(reduction * 100)) / BigInt(100)),
+//                 tokenB_amount: baseWETH - (baseWETH * BigInt(Math.floor(reduction * 100)) / BigInt(100))
+//             };
+//         case 'increase_exposure':
+//             const increase = Math.max(1.2, 2 - volatility / 10);
+//             return {
+//                 tokenA_amount: baseUNI * BigInt(Math.floor(increase * 100)) / BigInt(100),
+//                 tokenB_amount: baseWETH * BigInt(Math.floor(increase * 100)) / BigInt(100)
+//             };
+//         case 'exit_position':
+//             return { tokenA_amount: BigInt(0), tokenB_amount: BigInt(0) };
+//         default: // auto_optimize
+//             if (volatility > 15) {
+//                 return {
+//                     tokenA_amount: baseUNI * BigInt(75) / BigInt(100),
+//                     tokenB_amount: baseWETH * BigInt(75) / BigInt(100)
+//                 };
+//             } else if (volatility < 5) {
+//                 return {
+//                     tokenA_amount: baseUNI * BigInt(125) / BigInt(100),
+//                     tokenB_amount: baseWETH * BigInt(125) / BigInt(100)
+//                 };
+//             }
+//             return { tokenA_amount: baseUNI, tokenB_amount: baseWETH };
+//     }
+// }
 
 function formatReport(output) {
     return `
