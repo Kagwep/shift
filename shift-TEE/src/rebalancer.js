@@ -1,6 +1,6 @@
 import { ethers } from "ethers";
-import { initUniswapPositionManager } from "../providers/uniswapPositionManger";
-import { getTickRange } from "./utils";
+import { initUniswapPositionManager } from "./UniswapPositionManager.js";
+import { getTickRange } from "./utils/index.js";
 
 
 

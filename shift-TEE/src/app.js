@@ -1,9 +1,10 @@
 import fs from 'node:fs/promises';
 import path from 'path';
-import { UniswapPositionManager } from "./UniswapV3PositionManager";
-import { VolatilityPredictionAction } from "./VolatilityPredictionAction";
-import { rebalance } from "./rebalancer";
-import { ADDRESSES } from "./utils/tokens";
+import { UniswapPositionManager } from "./UniswapV3PositionManager.js";
+import { VolatilityPredictionAction } from "./predict.js";
+import { rebalance } from "./rebalancer.js";
+import { ADDRESSES } from "./utils/tokens.js";
+import { IExecDataProtectorDeserializer } from '@iexec/dataprotector-deserializer';
 
 const main = async () => {
   const { IEXEC_OUT, IEXEC_IN, IEXEC_DATASET_FILENAME } = process.env;
@@ -36,14 +37,21 @@ const main = async () => {
     let privateKey;
     let providerUrl;
     let chainId;
-    
+    const dataPath = path.join(IEXEC_IN, IEXEC_DATASET_FILENAME);
+    const deserializer = new IExecDataProtectorDeserializer(
+      {
+        protectedDataPath: dataPath 
+    }
+    );
+
     try {
-      const dataPath = path.join(IEXEC_IN, IEXEC_DATASET_FILENAME);
-      const protectedData = JSON.parse(await fs.readFile(dataPath, 'utf8'));
+      // const dataPath = path.join(IEXEC_IN, IEXEC_DATASET_FILENAME);
+      // const protectedData = JSON.parse(await fs.readFile(dataPath, 'utf8'));
       
-      privateKey = protectedData.privateKey;
-      providerUrl = protectedData.providerUrl || 'https://eth-sepolia.g.alchemy.com/v2/demo';
-      chainId = parseInt(protectedData.chainId || '11155111');
+      
+        privateKey = await deserializer.getValue("privateKey", "string");
+        providerUrl = await deserializer.getValue("providerUrl", "string");
+        chainId = Number(await deserializer.getValue("chainId", "string"))
       
       console.log('✅ Protected data loaded');
       console.log(`🔗 Chain ID: ${chainId}`);
