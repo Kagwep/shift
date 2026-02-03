@@ -5,6 +5,7 @@ import { VolatilityPredictionAction } from "./predict.js";
 import { rebalance } from "./rebalancer.js";
 import { ADDRESSES } from "./utils/tokens.js";
 import { IExecDataProtectorDeserializer } from '@iexec/dataprotector-deserializer';
+import { ethers } from "ethers";
 
 const main = async () => {
   const { IEXEC_OUT, IEXEC_IN, IEXEC_DATASET_FILENAME } = process.env;
