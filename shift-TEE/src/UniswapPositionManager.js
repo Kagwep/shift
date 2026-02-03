@@ -1,7 +1,7 @@
 import { ethers, Contract } from "ethers";
 
 // ABI imports - you'll need to add these ABIs
-import { WETHABI, UNIABI, USDCABI, NPositionManagerABI, PositionFactoryABI, RouterABI } from "./abis";
+import { WETHABI, UNIABI, USDCABI, NPositionManagerABI, PositionFactoryABI, RouterABI } from "./abis.js";
 
 const MAX_UINT_128 = BigInt(2) ** BigInt(128) - BigInt(1);
 
