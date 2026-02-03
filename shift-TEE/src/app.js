@@ -257,7 +257,7 @@ function getContractAddresses(chainId, tokenPair, poolAddress) {
 function getThreshold(level) {
     const thresholds = {
         'low': 2.0,
-        'moderate': 2.5,
+        'moderate': 5,
         'high': 10.0,
         'extreme': 20.0
     };
