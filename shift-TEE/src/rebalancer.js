@@ -30,7 +30,7 @@ async function getCurrentTick(poolContract) {
  */
 export async function rebalance(
     positionManager,
-    addressess,
+    addresses,
     params
 ) {
     const {
