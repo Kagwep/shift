@@ -51,8 +51,8 @@ export async function rebalance(
         logger.log("Starting rebalance process...");
 
         // Check if prediction was successful
-        if (!predictionResponse.success) {
-            throw new Error(`Prediction failed: ${predictionResponse.message}`);
+        if (predictionResponse.code !== 'SUCCESS') { 
+            throw new Error(`Prediction failed: ${predictionResponse.message || 'Unknown error'}`);
         }
 
         // Calculate dec_price_change (you'll need to implement this)
