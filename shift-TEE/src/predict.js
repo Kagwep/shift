@@ -8,7 +8,7 @@ export class VolatilityPredictionAction {
     }
     
     // Method to handle volatility predictions
-    async fetchVolatilityPrediction(tokenPair) {
+    async fetchVolatilityPrediction(tokenPair,days) {
         try {
             // AWS endpoint uses POST instead of GET
             const response = await fetch(this.predictionApiUrl, {
