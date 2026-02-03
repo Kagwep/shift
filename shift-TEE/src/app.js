@@ -23,7 +23,7 @@ const main = async () => {
     const tokenPair = args[0] || 'LINKUSDT';
     const action = args[1] || 'auto_optimize';
     const volatilityThreshold = args[2] || 'moderate';
-    const poolAddress = args[3] || '0x287B0e934ed0439E2a7b1d5F0FC25eA2c24b64f7';
+    const poolAddress = '0x287B0e934ed0439E2a7b1d5F0FC25eA2c24b64f7';
     
     console.log(`📊 Config from args:`);
     console.log(`   Token Pair: ${tokenPair}`);
