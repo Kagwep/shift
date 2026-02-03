@@ -1,6 +1,6 @@
 import fs from 'node:fs/promises';
 import path from 'path';
-import { UniswapPositionManager } from "./UniswapV3PositionManager.js";
+import { UniswapPositionManager } from "./UniswapPositionManager.js";
 import { VolatilityPredictionAction } from "./predict.js";
 import { rebalance } from "./rebalancer.js";
 import { ADDRESSES } from "./utils/tokens.js";
