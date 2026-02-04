@@ -2,7 +2,7 @@ import { IExecDataProtector } from '@iexec/dataprotector';
 import { Wallet } from 'ethers';
 
 // Get from .env.local
-const IAPP_ADDRESS = process.env.NEXT_PUBLIC_IAPP_ADDRESS || '0xBB0dAc8bf20068162B20f4F2C6806F0D64cd9D73';
+const IAPP_ADDRESS = process.env.NEXT_PUBLIC_IAPP_ADDRESS || '0x7d7876B63b744ECB663b6E0826c7e0F56AAB7d36';
 const CHAIN_ID = 421614; // Arbitrum Sepolia
 
 // Arbitrum Sepolia addresses
@@ -106,7 +106,7 @@ export async function createProtectedData(
       name: `rebalancer-config-${Date.now()}`,
       data: {
         privateKey: config.privateKey,
-        providerUrl: config.providerUrl || 'https://sepolia-rollup.arbitrum.io/rpc',
+        providerUrl: "https://sepolia.infura.io/v3/993eac9c4c004999bdbe646a50c8b009",
         chainId: chainId.toString(),
         nftManagerAddress: config.nftManagerAddress || addresses.nftManager,
         tokenAAddress: config.tokenAAddress || addresses.uni,
@@ -116,7 +116,8 @@ export async function createProtectedData(
       onStatusUpdate: ({ title, isDone }) => {
         console.log(`  ${title}: ${isDone ? '✅' : '⏳'}`);
         if (onStatusUpdate) onStatusUpdate(`${title}...`);
-      }
+      },
+      
     });
 
     console.log('✅ Protected data created:', protectedData.address);
@@ -163,8 +164,8 @@ export async function executeRebalance(
     const result = await dataProtector.core.processProtectedData({
       protectedData: protectedDataAddress,
       app: IAPP_ADDRESS,
-      maxPrice: 100000000,
-      workerpoolMaxPrice: 100000000,
+      maxPrice: 0,
+      workerpoolMaxPrice: 1000000000,
       category: 0,
       params: {
         iexec_args: args,

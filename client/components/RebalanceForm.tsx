@@ -1,21 +1,6 @@
 'use client';
-import { Wallet } from 'ethers';
-import Grid2 from '@mui/material/Unstable_Grid2';
+import { BrowserProvider, Wallet } from 'ethers';
 import React, { useState } from 'react';
-import {
-  Box,
-  Button,
-  TextField,
-  MenuItem,
-  Select,
-  FormControl,
-  InputLabel,
-  Typography,
-  Paper,
-  Alert,
-  CircularProgress,
-  Chip,
-} from '@mui/material';
 import {
   initDataProtector,
   createProtectedData,
@@ -37,24 +22,23 @@ const TOKEN_PAIRS = [
 ];
 
 const ACTIONS = [
-  { value: 'auto_optimize', label: 'Auto Optimize' },
-  { value: 'reduce_exposure', label: 'Reduce Exposure' },
-  { value: 'increase_exposure', label: 'Increase Exposure' },
-  { value: 'exit_position', label: 'Exit Position' },
+  { value: 'auto_optimize', label: 'Auto Optimize', icon: '🤖' },
+  { value: 'reduce_exposure', label: 'Reduce Exposure', icon: '📉' },
+  { value: 'increase_exposure', label: 'Increase Exposure', icon: '📈' },
+  { value: 'exit_position', label: 'Exit Position', icon: '🚪' },
 ];
 
 const THRESHOLDS = [
-  { value: 'low', label: 'Low (2%)' },
-  { value: 'moderate', label: 'Moderate (5%)' },
-  { value: 'high', label: 'High (10%)' },
-  { value: 'extreme', label: 'Extreme (20%)' },
+  { value: 'low', label: 'Low', percent: '2%', color: 'green' },
+  { value: 'moderate', label: 'Moderate', percent: '5%', color: 'yellow' },
+  { value: 'high', label: 'High', percent: '10%', color: 'orange' },
+  { value: 'extreme', label: 'Extreme', percent: '20%', color: 'red' },
 ];
 
-// Arbitrum Sepolia default pool addresses (user must provide real one)
 const DEFAULT_POOL_ADDRESSES = {
-  UNIUSDC: '', // User must provide
-  UNIWETH: '', // User must provide
-  LINKUSDT: '', // User must provide
+  UNIUSDC: '',
+  UNIWETH: '',
+  LINKUSDT: '',
 };
 
 export default function RebalanceForm({ onTaskCreated, onError }: RebalanceFormProps) {
@@ -62,27 +46,18 @@ export default function RebalanceForm({ onTaskCreated, onError }: RebalanceFormP
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
   const [taskId, setTaskId] = useState<string | null>(null);
-
   const [formData, setFormData] = useState({
-    // User wallet (for executing task)
     userPrivateKey: '',
-    // Position wallet (protected data - for Uniswap operations)
     positionPrivateKey: '',
-    positionProviderUrl: 'https://sepolia-rollup.arbitrum.io/rpc',
+    positionProviderUrl: 'https://sepolia.infura.io/v3/993eac9c4c004999bdbe646a50c8b009',
     positionChainId: '421614',
-    
-    // Strategy
     tokenPair: 'UNIUSDC',
     action: 'auto_optimize',
     threshold: 'moderate',
-    
-    // Pool address (REQUIRED)
     poolAddress: '',
-    
-    // Optional overrides
     nftManagerAddress: '0xC36442b4a4522E871399CD717aBDD847Ab11FE88',
-    tokenAAddress: '0xFa7F8980b0f1E64A2062791cc3b0871572f1F7f0', // UNI on Arbitrum
-    tokenBAddress: '0x75faf114eafb1BDbe2F0316DF893fd58CE46AA4d', // USDC on Arbitrum Sepolia
+    tokenAAddress: '0xFa7F8980b0f1E64A2062791cc3b0871572f1F7f0',
+    tokenBAddress: '0x75faf114eafb1BDbe2F0316DF893fd58CE46AA4d',
   });
 
   const [walletInfo, setWalletInfo] = useState<{
@@ -94,25 +69,20 @@ export default function RebalanceForm({ onTaskCreated, onError }: RebalanceFormP
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
     const { name, value } = e.target;
-    setFormData(prev => ({
-      ...prev,
-      [name]: value,
-    }));
+    setFormData(prev => ({ ...prev, [name]: value }));
   };
 
-  const handleSelectChange = (name: string) => (e: any) => {
-    const value = e.target.value;
+  const handleSelectChange = (name: string, value: string) => {
     setFormData(prev => ({
       ...prev,
       [name]: value,
-      // Update token addresses based on pair
       ...(name === 'tokenPair' && {
         tokenAAddress: value === 'UNIWETH' 
-          ? '0xFa7F8980b0f1E64A2062791cc3b0871572f1F7f0' // UNI
-          : '0xFa7F8980b0f1E64A2062791cc3b0871572f1F7f0', // UNI for UNI/USDC
+          ? '0xFa7F8980b0f1E64A2062791cc3b0871572f1F7f0'
+          : '0xFa7F8980b0f1E64A2062791cc3b0871572f1F7f0',
         tokenBAddress: value === 'UNIWETH'
-          ? '0x82aF49447D8a07e3bd95BD0d56f35241523fBab1' // WETH
-          : '0x75faf114eafb1BDbe2F0316DF893fd58CE46AA4d', // USDC
+          ? '0x82aF49447D8a07e3bd95BD0d56f35241523fBab1'
+          : '0x75faf114eafb1BDbe2F0316DF893fd58CE46AA4d',
         poolAddress: DEFAULT_POOL_ADDRESSES[value as keyof typeof DEFAULT_POOL_ADDRESSES] || '',
       }),
     }));
@@ -124,7 +94,7 @@ export default function RebalanceForm({ onTaskCreated, onError }: RebalanceFormP
       if (!formData.userPrivateKey) {
         throw new Error('Enter your wallet private key to check balance');
       }
-
+      
       const wallet = {
         getSigner: async () => ({
           getAddress: () => formData.userPrivateKey ? new Wallet(formData.userPrivateKey).address : '',
@@ -133,7 +103,7 @@ export default function RebalanceForm({ onTaskCreated, onError }: RebalanceFormP
           }
         })
       };
-
+      
       const balance = await getWalletBalance(wallet as any);
       
       setWalletInfo({
@@ -142,7 +112,7 @@ export default function RebalanceForm({ onTaskCreated, onError }: RebalanceFormP
         rlc: balance.rlc,
         network: balance.network,
       });
-
+      
       setSuccess(`Wallet connected: ${balance.address.slice(0, 10)}...`);
     } catch (err: any) {
       setError(err.message || 'Failed to check wallet');
@@ -157,7 +127,6 @@ export default function RebalanceForm({ onTaskCreated, onError }: RebalanceFormP
       setSuccess(null);
       setTaskId(null);
 
-      // Validate
       if (!formData.userPrivateKey) {
         throw new Error('User private key is required');
       }
@@ -168,12 +137,8 @@ export default function RebalanceForm({ onTaskCreated, onError }: RebalanceFormP
         throw new Error('Pool address is required. Find or create a Uniswap V3 pool on Arbitrum Sepolia.');
       }
 
-      // 1. Initialize wallet provider
-      const walletProvider = {
-        getSigner: async () => new Wallet(formData.userPrivateKey),
-      };
+      const walletProvider = new BrowserProvider((window as any).ethereum);
 
-      // 2. Create protected data with position config
       const protectedDataConfig: ProtectedDataConfig = {
         privateKey: formData.positionPrivateKey,
         providerUrl: formData.positionProviderUrl,
@@ -184,19 +149,18 @@ export default function RebalanceForm({ onTaskCreated, onError }: RebalanceFormP
         poolAddress: formData.poolAddress,
       };
 
-      const protectedData = await createProtectedData(
-        walletProvider as any,
-        protectedDataConfig,
-        (status) => console.log('Status:', status)
-      );
+      // const protectedData = await createProtectedData(
+      //   walletProvider as any,
+      //   protectedDataConfig,
+        
+      //   (status) => console.log('Status:', status)
+      // );
 
-      // 3. Prepare args for the TEE app
       const args = `${formData.tokenPair} ${formData.action} ${formData.threshold}`;
       
-      // 4. Execute the task
       const result = await executeRebalance(
         walletProvider as any,
-        protectedData.address,
+        "0x5dc1d957076C5F38b7c3444bd9Fa3c5a4fE57591",
         args,
         (status) => console.log('Task status:', status)
       );
@@ -212,7 +176,6 @@ export default function RebalanceForm({ onTaskCreated, onError }: RebalanceFormP
         onTaskCreated?.(result.taskId);
       }
 
-      // 5. Update wallet balance
       const balance = await getWalletBalance(walletProvider as any);
       setWalletInfo({
         address: balance.address,
@@ -220,7 +183,6 @@ export default function RebalanceForm({ onTaskCreated, onError }: RebalanceFormP
         rlc: balance.rlc,
         network: balance.network,
       });
-
     } catch (err: any) {
       const errorMsg = err.message || 'Failed to execute rebalance';
       setError(errorMsg);
@@ -231,303 +193,371 @@ export default function RebalanceForm({ onTaskCreated, onError }: RebalanceFormP
   };
 
   return (
-    <Paper elevation={3} sx={{ p: 4, maxWidth: 800, margin: '0 auto' }}>
-      <Box sx={{ display: 'flex', alignItems: 'center', gap: 2, mb: 3 }}>
-        <Typography variant="h4" sx={{ fontWeight: 'bold', color: '#1976d2' }}>
-          🚀 Uniswap V3 TEE Rebalancer
-        </Typography>
-        <Chip 
-          label="Arbitrum Sepolia" 
-          color="primary" 
-          variant="outlined"
-          size="small"
-        />
-      </Box>
-      
-      <Typography variant="body1" color="text.secondary" paragraph>
-        Execute volatility-based rebalancing in a Trusted Execution Environment (TEE) on Arbitrum Sepolia
-      </Typography>
+    <div className="max-w-4xl mx-auto">
+      {/* Header Card */}
+      <div className="bg-white dark:bg-slate-800 rounded-2xl shadow-xl p-6 mb-6 border border-slate-200 dark:border-slate-700">
+        <div className="flex items-center justify-between mb-4">
+          <div className="flex items-center gap-3">
+            <div className="w-12 h-12 bg-gradient-to-br from-violet-500 to-purple-600 rounded-xl flex items-center justify-center shadow-lg">
+              <span className="text-2xl">🚀</span>
+            </div>
+            <div>
+              <h2 className="text-2xl font-bold text-slate-900 dark:text-white">
+                Uniswap V3 TEE Rebalancer
+              </h2>
+              <p className="text-sm text-slate-600 dark:text-slate-400">
+                Execute volatility-based rebalancing in a Trusted Execution Environment
+              </p>
+            </div>
+          </div>
+          <span className="px-3 py-1 text-xs font-semibold text-blue-700 bg-blue-100 dark:bg-blue-900/30 dark:text-blue-300 rounded-full border border-blue-200 dark:border-blue-800">
+            Arbitrum Sepolia
+          </span>
+        </div>
 
-      {error && (
-        <Alert severity="error" sx={{ mb: 3 }}>
-          {error}
-        </Alert>
-      )}
-
-      {success && (
-        <Alert severity="success" sx={{ mb: 3 }}>
-          {success}
-        </Alert>
-      )}
-
-      {taskId && (
-        <Alert severity="info" sx={{ mb: 3 }}>
-          <Typography variant="body2">
-            <strong>Task ID:</strong> {taskId}
-            <br />
-            <strong>Explorer:</strong>{' '}
-            <a 
-              href={`https://explorer.iex.ec/arbitrum-sepolia-testnet/task/${taskId}`}
-              target="_blank"
-              rel="noopener noreferrer"
-              style={{ color: '#1976d2', textDecoration: 'underline' }}
-            >
-              View on iExec Explorer
-            </a>
-          </Typography>
-        </Alert>
-      )}
-
-      <Grid2 container spacing={3}>
-        {/* Network Info */}
-        <Grid2 xs={12}>
-          <Alert severity="info" icon={false}>
-            <Typography variant="body2">
-              <strong>🌐 Network:</strong> Arbitrum Sepolia (Chain ID: 421614)
-              <br />
-              <strong>💰 Requirements:</strong> You need ETH for gas and RLC for task execution on Arbitrum Sepolia
-            </Typography>
-          </Alert>
-        </Grid2>
-
-        {/* Wallet Section */}
-        <Grid2 xs={12}>
-          <Typography variant="h6" gutterBottom sx={{ color: '#2e7d32' }}>
-            👛 Wallet Configuration
-          </Typography>
-        </Grid2>
-
-        <Grid2 xs={12} md={6}>
-          <TextField
-            fullWidth
-            label="Your Private Key"
-            name="userPrivateKey"
-            value={formData.userPrivateKey}
-            onChange={handleInputChange}
-            type="password"
-            placeholder="0x..."
-            helperText="Used to pay for task execution on Arbitrum Sepolia"
-            required
-          />
-        </Grid2>
-
-        <Grid2 xs={12} md={6}>
-          <Button
-            fullWidth
-            variant="outlined"
-            onClick={checkWallet}
-            disabled={!formData.userPrivateKey}
-            sx={{ height: '56px' }}
-          >
-            Check Wallet Balance
-          </Button>
-        </Grid2>
-
-        {walletInfo && (
-          <Grid2 xs={12}>
-            <Alert severity="info">
-              <Typography variant="body2">
-                <strong>Network:</strong> {walletInfo.network}<br />
-                <strong>Address:</strong> {walletInfo.address}<br />
-                <strong>ETH Balance:</strong> {(parseInt(walletInfo.ether) / 1e18).toFixed(4)} ETH<br />
-                <strong>RLC Balance:</strong> {formatRLC(walletInfo.rlc)} RLC
-              </Typography>
-            </Alert>
-          </Grid2>
+        {/* Alerts */}
+        {error && (
+          <div className="mb-4 p-4 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg">
+            <div className="flex items-start gap-2">
+              <span className="text-red-600 dark:text-red-400">❌</span>
+              <p className="text-sm text-red-800 dark:text-red-200 flex-1">{error}</p>
+            </div>
+          </div>
         )}
 
-        {/* Protected Data Section */}
-        <Grid2 xs={12}>
-          <Typography variant="h6" gutterBottom sx={{ color: '#ed6c02' }}>
-            🔐 Position Configuration (Encrypted in TEE)
-          </Typography>
-          <Typography variant="body2" color="text.secondary" paragraph>
-            This private key will be encrypted and only decrypted inside the TEE
-          </Typography>
-        </Grid2>
+        {success && (
+          <div className="mb-4 p-4 bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800 rounded-lg">
+            <div className="flex items-start gap-2">
+              <span className="text-green-600 dark:text-green-400">✅</span>
+              <p className="text-sm text-green-800 dark:text-green-200 flex-1">{success}</p>
+            </div>
+          </div>
+        )}
 
-        <Grid2 xs={12} md={6}>
-          <TextField
-            fullWidth
-            label="Position Private Key"
-            name="positionPrivateKey"
-            value={formData.positionPrivateKey}
-            onChange={handleInputChange}
-            type="password"
-            placeholder="0x..."
-            helperText="Private key for Uniswap operations (encrypted)"
-            required
-          />
-        </Grid2>
+        {taskId && (
+          <div className="mb-4 p-4 bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-lg">
+            <div className="flex items-start gap-2">
+              <span className="text-blue-600 dark:text-blue-400">ℹ️</span>
+              <div className="flex-1">
+                <p className="text-sm text-blue-900 dark:text-blue-100 font-medium mb-1">Task ID: {taskId}</p>
+                <a 
+                  href={`https://explorer.iex.ec/arbitrum-sepolia-testnet/task/${taskId}`}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="text-sm text-blue-600 dark:text-blue-400 hover:underline"
+                >
+                  View on iExec Explorer →
+                </a>
+              </div>
+            </div>
+          </div>
+        )}
 
-        <Grid2 xs={12} md={6}>
-          <TextField
-            fullWidth
-            label="Provider URL"
-            name="positionProviderUrl"
-            value={formData.positionProviderUrl}
-            onChange={handleInputChange}
-            helperText="Arbitrum Sepolia RPC endpoint"
-          />
-        </Grid2>
+        {/* Network Info */}
+        <div className="p-4 bg-slate-50 dark:bg-slate-900/50 rounded-lg border border-slate-200 dark:border-slate-700">
+          <div className="flex items-start gap-2">
+            <span className="text-slate-600 dark:text-slate-400">🌐</span>
+            <div className="text-sm text-slate-700 dark:text-slate-300">
+              <p className="font-medium mb-1">Network: Arbitrum Sepolia (Chain ID: 421614)</p>
+              <p className="text-xs">Requirements: ETH for gas + RLC for task execution</p>
+            </div>
+          </div>
+        </div>
+      </div>
 
-        {/* Strategy Section */}
-        <Grid2 xs={12}>
-          <Typography variant="h6" gutterBottom sx={{ color: '#9c27b0' }}>
-            ⚙️ Rebalancing Strategy
-          </Typography>
-        </Grid2>
+      {/* Wallet Configuration */}
+      <div className="bg-white dark:bg-slate-800 rounded-2xl shadow-xl p-6 mb-6 border border-slate-200 dark:border-slate-700">
+        <div className="flex items-center gap-2 mb-4">
+          <span className="text-2xl">👛</span>
+          <h3 className="text-xl font-bold text-slate-900 dark:text-white">Wallet Configuration</h3>
+        </div>
 
-        <Grid2 xs={12} md={4}>
-          <FormControl fullWidth>
-            <InputLabel>Token Pair</InputLabel>
-            <Select
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <div>
+            <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-2">
+              Your Private Key *
+            </label>
+            <input
+              type="password"
+              name="userPrivateKey"
+              value={formData.userPrivateKey}
+              onChange={handleInputChange}
+              placeholder="0x..."
+              className="w-full px-4 py-3 bg-slate-50 dark:bg-slate-900 border border-slate-300 dark:border-slate-600 rounded-lg focus:ring-2 focus:ring-violet-500 focus:border-transparent outline-none transition-all text-slate-900 dark:text-white"
+            />
+            <p className="mt-1 text-xs text-slate-500 dark:text-slate-400">Used to pay for task execution</p>
+          </div>
+
+          <div className="flex items-end">
+            <button
+              onClick={checkWallet}
+              disabled={!formData.userPrivateKey}
+              className="w-full px-4 py-3 bg-slate-100 dark:bg-slate-700 text-slate-700 dark:text-slate-200 rounded-lg font-medium hover:bg-slate-200 dark:hover:bg-slate-600 disabled:opacity-50 disabled:cursor-not-allowed transition-all"
+            >
+              Check Wallet Balance
+            </button>
+          </div>
+        </div>
+
+        {walletInfo && (
+          <div className="mt-4 p-4 bg-blue-50 dark:bg-blue-900/20 rounded-lg border border-blue-200 dark:border-blue-800">
+            <div className="grid grid-cols-2 gap-3 text-sm">
+              <div>
+                <p className="text-blue-700 dark:text-blue-300 font-medium">Network</p>
+                <p className="text-blue-900 dark:text-blue-100">{walletInfo.network}</p>
+              </div>
+              <div>
+                <p className="text-blue-700 dark:text-blue-300 font-medium">Address</p>
+                <p className="text-blue-900 dark:text-blue-100 font-mono text-xs">{walletInfo.address}</p>
+              </div>
+              <div>
+                <p className="text-blue-700 dark:text-blue-300 font-medium">ETH Balance</p>
+                <p className="text-blue-900 dark:text-blue-100">{(parseInt(walletInfo.ether) / 1e18).toFixed(4)} ETH</p>
+              </div>
+              <div>
+                <p className="text-blue-700 dark:text-blue-300 font-medium">RLC Balance</p>
+                <p className="text-blue-900 dark:text-blue-100">{formatRLC(walletInfo.rlc)} RLC</p>
+              </div>
+            </div>
+          </div>
+        )}
+      </div>
+
+      {/* Protected Data Configuration */}
+      <div className="bg-white dark:bg-slate-800 rounded-2xl shadow-xl p-6 mb-6 border border-slate-200 dark:border-slate-700">
+        <div className="flex items-center gap-2 mb-2">
+          <span className="text-2xl">🔐</span>
+          <h3 className="text-xl font-bold text-slate-900 dark:text-white">Position Configuration</h3>
+        </div>
+        <p className="text-sm text-slate-600 dark:text-slate-400 mb-4">
+          This private key will be encrypted and only decrypted inside the TEE
+        </p>
+
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <div>
+            <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-2">
+              Position Private Key *
+            </label>
+            <input
+              type="password"
+              name="positionPrivateKey"
+              value={formData.positionPrivateKey}
+              onChange={handleInputChange}
+              placeholder="0x..."
+              className="w-full px-4 py-3 bg-slate-50 dark:bg-slate-900 border border-slate-300 dark:border-slate-600 rounded-lg focus:ring-2 focus:ring-violet-500 focus:border-transparent outline-none transition-all text-slate-900 dark:text-white"
+            />
+            <p className="mt-1 text-xs text-slate-500 dark:text-slate-400">Private key for Uniswap operations (encrypted)</p>
+          </div>
+
+          <div>
+            <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-2">
+              Provider URL
+            </label>
+            <input
+              type="text"
+              name="positionProviderUrl"
+              value={formData.positionProviderUrl}
+              onChange={handleInputChange}
+              className="w-full px-4 py-3 bg-slate-50 dark:bg-slate-900 border border-slate-300 dark:border-slate-600 rounded-lg focus:ring-2 focus:ring-violet-500 focus:border-transparent outline-none transition-all text-slate-900 dark:text-white"
+            />
+            <p className="mt-1 text-xs text-slate-500 dark:text-slate-400">Arbitrum Sepolia RPC endpoint</p>
+          </div>
+        </div>
+      </div>
+
+      {/* Strategy Configuration */}
+      <div className="bg-white dark:bg-slate-800 rounded-2xl shadow-xl p-6 mb-6 border border-slate-200 dark:border-slate-700">
+        <div className="flex items-center gap-2 mb-4">
+          <span className="text-2xl">⚙️</span>
+          <h3 className="text-xl font-bold text-slate-900 dark:text-white">Rebalancing Strategy</h3>
+        </div>
+
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-4">
+          {/* Token Pair */}
+          <div>
+            <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-2">
+              Token Pair
+            </label>
+            <select
               value={formData.tokenPair}
-              onChange={handleSelectChange('tokenPair')}
-              label="Token Pair"
+              onChange={(e) => handleSelectChange('tokenPair', e.target.value)}
+              className="w-full px-4 py-3 bg-slate-50 dark:bg-slate-900 border border-slate-300 dark:border-slate-600 rounded-lg focus:ring-2 focus:ring-violet-500 focus:border-transparent outline-none transition-all text-slate-900 dark:text-white"
             >
               {TOKEN_PAIRS.map(pair => (
-                <MenuItem key={pair.value} value={pair.value}>
-                  {pair.label}
-                </MenuItem>
+                <option key={pair.value} value={pair.value}>{pair.label}</option>
               ))}
-            </Select>
-          </FormControl>
-        </Grid2>
+            </select>
+          </div>
 
-        <Grid2 xs={12} md={4}>
-          <FormControl fullWidth>
-            <InputLabel>Action</InputLabel>
-            <Select
+          {/* Action */}
+          <div>
+            <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-2">
+              Action
+            </label>
+            <select
               value={formData.action}
-              onChange={handleSelectChange('action')}
-              label="Action"
+              onChange={(e) => handleSelectChange('action', e.target.value)}
+              className="w-full px-4 py-3 bg-slate-50 dark:bg-slate-900 border border-slate-300 dark:border-slate-600 rounded-lg focus:ring-2 focus:ring-violet-500 focus:border-transparent outline-none transition-all text-slate-900 dark:text-white"
             >
               {ACTIONS.map(action => (
-                <MenuItem key={action.value} value={action.value}>
-                  {action.label}
-                </MenuItem>
+                <option key={action.value} value={action.value}>
+                  {action.icon} {action.label}
+                </option>
               ))}
-            </Select>
-          </FormControl>
-        </Grid2>
+            </select>
+          </div>
 
-        <Grid2 xs={12} md={4}>
-          <FormControl fullWidth>
-            <InputLabel>Volatility Threshold</InputLabel>
-            <Select
+          {/* Threshold */}
+          <div>
+            <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-2">
+              Volatility Threshold
+            </label>
+            <select
               value={formData.threshold}
-              onChange={handleSelectChange('threshold')}
-              label="Volatility Threshold"
+              onChange={(e) => handleSelectChange('threshold', e.target.value)}
+              className="w-full px-4 py-3 bg-slate-50 dark:bg-slate-900 border border-slate-300 dark:border-slate-600 rounded-lg focus:ring-2 focus:ring-violet-500 focus:border-transparent outline-none transition-all text-slate-900 dark:text-white"
             >
               {THRESHOLDS.map(threshold => (
-                <MenuItem key={threshold.value} value={threshold.value}>
-                  {threshold.label}
-                </MenuItem>
+                <option key={threshold.value} value={threshold.value}>
+                  {threshold.label} ({threshold.percent})
+                </option>
               ))}
-            </Select>
-          </FormControl>
-        </Grid2>
+            </select>
+          </div>
+        </div>
 
-        {/* Pool Address (CRITICAL) */}
-        <Grid2 xs={12}>
-          <Typography variant="h6" gutterBottom sx={{ color: '#d32f2f' }}>
-            🏊 Pool Address (Required)
-          </Typography>
-          <Alert severity="warning" sx={{ mb: 2 }}>
-            You must provide a real Uniswap V3 pool address on Arbitrum Sepolia
-          </Alert>
-          <TextField
-            fullWidth
-            label="Pool Address"
+        {/* Pool Address */}
+        <div>
+          <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-2">
+            Pool Address *
+          </label>
+          <div className="mb-2 p-3 bg-yellow-50 dark:bg-yellow-900/20 rounded-lg border border-yellow-200 dark:border-yellow-800">
+            <p className="text-xs text-yellow-800 dark:text-yellow-200">
+              ⚠️ You must provide a real Uniswap V3 pool address on Arbitrum Sepolia
+            </p>
+          </div>
+          <input
+            type="text"
             name="poolAddress"
             value={formData.poolAddress}
             onChange={handleInputChange}
             placeholder="0x..."
-            helperText="Find or create a Uniswap V3 pool on Arbitrum Sepolia"
-            required
+            className="w-full px-4 py-3 bg-slate-50 dark:bg-slate-900 border border-slate-300 dark:border-slate-600 rounded-lg focus:ring-2 focus:ring-violet-500 focus:border-transparent outline-none transition-all text-slate-900 dark:text-white"
           />
-        </Grid2>
+          <p className="mt-1 text-xs text-slate-500 dark:text-slate-400">Find or create a Uniswap V3 pool</p>
+        </div>
+      </div>
 
-        {/* Advanced Options */}
-        <Grid2 xs={12}>
-          <Typography variant="h6" gutterBottom sx={{ color: '#546e7a' }}>
-            ⚙️ Advanced Options
-          </Typography>
-        </Grid2>
+      {/* Advanced Options */}
+      <details className="bg-white dark:bg-slate-800 rounded-2xl shadow-xl p-6 mb-6 border border-slate-200 dark:border-slate-700 group">
+        <summary className="flex items-center gap-2 cursor-pointer list-none">
+          <span className="text-2xl">⚙️</span>
+          <h3 className="text-xl font-bold text-slate-900 dark:text-white">Advanced Options</h3>
+          <span className="ml-auto text-slate-400 group-open:rotate-180 transition-transform">▼</span>
+        </summary>
 
-        <Grid2 xs={12} md={6}>
-          <TextField
-            fullWidth
-            label="NFT Manager Address"
-            name="nftManagerAddress"
-            value={formData.nftManagerAddress}
-            onChange={handleInputChange}
-            helperText="Uniswap V3 Position Manager (Arbitrum)"
-          />
-        </Grid2>
+        <div className="mt-4 grid grid-cols-1 md:grid-cols-2 gap-4">
+          <div>
+            <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-2">
+              NFT Manager Address
+            </label>
+            <input
+              type="text"
+              name="nftManagerAddress"
+              value={formData.nftManagerAddress}
+              onChange={handleInputChange}
+              className="w-full px-4 py-3 bg-slate-50 dark:bg-slate-900 border border-slate-300 dark:border-slate-600 rounded-lg focus:ring-2 focus:ring-violet-500 focus:border-transparent outline-none transition-all text-slate-900 dark:text-white text-sm font-mono"
+            />
+            <p className="mt-1 text-xs text-slate-500 dark:text-slate-400">Uniswap V3 Position Manager</p>
+          </div>
 
-        <Grid2 xs={12} md={6}>
-          <TextField
-            fullWidth
-            label="Token A Address"
-            name="tokenAAddress"
-            value={formData.tokenAAddress}
-            onChange={handleInputChange}
-            helperText="First token (e.g., UNI)"
-          />
-        </Grid2>
+          <div>
+            <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-2">
+              Token A Address
+            </label>
+            <input
+              type="text"
+              name="tokenAAddress"
+              value={formData.tokenAAddress}
+              onChange={handleInputChange}
+              className="w-full px-4 py-3 bg-slate-50 dark:bg-slate-900 border border-slate-300 dark:border-slate-600 rounded-lg focus:ring-2 focus:ring-violet-500 focus:border-transparent outline-none transition-all text-slate-900 dark:text-white text-sm font-mono"
+            />
+            <p className="mt-1 text-xs text-slate-500 dark:text-slate-400">First token (e.g., UNI)</p>
+          </div>
 
-        <Grid2 xs={12} md={6}>
-          <TextField
-            fullWidth
-            label="Token B Address"
-            name="tokenBAddress"
-            value={formData.tokenBAddress}
-            onChange={handleInputChange}
-            helperText="Second token (e.g., USDC)"
-          />
-        </Grid2>
+          <div>
+            <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-2">
+              Token B Address
+            </label>
+            <input
+              type="text"
+              name="tokenBAddress"
+              value={formData.tokenBAddress}
+              onChange={handleInputChange}
+              className="w-full px-4 py-3 bg-slate-50 dark:bg-slate-900 border border-slate-300 dark:border-slate-600 rounded-lg focus:ring-2 focus:ring-violet-500 focus:border-transparent outline-none transition-all text-slate-900 dark:text-white text-sm font-mono"
+            />
+            <p className="mt-1 text-xs text-slate-500 dark:text-slate-400">Second token (e.g., USDC)</p>
+          </div>
+        </div>
+      </details>
 
-        {/* Execute Button */}
-        <Grid2 xs={12}>
-          <Box sx={{ mt: 3, display: 'flex', justifyContent: 'center' }}>
-            <Button
-              variant="contained"
-              size="large"
-              onClick={executeRebalancer}
-              disabled={loading || !formData.userPrivateKey || !formData.positionPrivateKey || !formData.poolAddress}
-              startIcon={loading ? <CircularProgress size={20} /> : null}
-              sx={{
-                py: 1.5,
-                px: 4,
-                fontSize: '1.1rem',
-                background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
-                '&:hover': {
-                  background: 'linear-gradient(135deg, #5a67d8 0%, #6b46c1 100%)',
-                },
-              }}
-            >
-              {loading ? 'Processing...' : '🚀 Execute TEE Rebalance'}
-            </Button>
-          </Box>
-        </Grid2>
+      {/* Execute Button */}
+      <div className="flex justify-center">
+        <button
+          onClick={executeRebalancer}
+          disabled={loading || !formData.userPrivateKey || !formData.positionPrivateKey || !formData.poolAddress}
+          className="px-8 py-4 text-lg font-bold text-white bg-gradient-to-r from-violet-600 to-purple-600 rounded-xl hover:shadow-2xl hover:scale-105 disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:scale-100 transition-all duration-200 flex items-center gap-3"
+        >
+          {loading ? (
+            <>
+              <svg className="animate-spin h-5 w-5" viewBox="0 0 24 24">
+                <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" fill="none" />
+                <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
+              </svg>
+              Processing...
+            </>
+          ) : (
+            <>
+              <span className="text-2xl">🚀</span>
+              Execute TEE Rebalance
+            </>
+          )}
+        </button>
+      </div>
 
-        {/* Info Box */}
-        <Grid2 xs={12}>
-          <Alert severity="info" icon={false}>
-            <Typography variant="body2">
-              <strong>🔒 Security:</strong> Position private key encrypted in TEE
-              <br />
-              <strong>📍 Network:</strong> All operations on Arbitrum Sepolia testnet
-              <br />
-              <strong>⏱️ Time:</strong> TEE tasks take 1-5 minutes
-              <br />
-              <strong>⚠️ Note:</strong> You need a real Uniswap V3 pool address
-            </Typography>
-          </Alert>
-        </Grid2>
-      </Grid2>
-    </Paper>
+      {/* Info Footer */}
+      <div className="mt-6 p-4 bg-slate-50 dark:bg-slate-900/50 rounded-lg border border-slate-200 dark:border-slate-700">
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-3 text-sm text-slate-600 dark:text-slate-400">
+          <div className="flex items-start gap-2">
+            <span>🔒</span>
+            <div>
+              <p className="font-medium text-slate-700 dark:text-slate-300">Security</p>
+              <p className="text-xs">Position private key encrypted in TEE</p>
+            </div>
+          </div>
+          <div className="flex items-start gap-2">
+            <span>📍</span>
+            <div>
+              <p className="font-medium text-slate-700 dark:text-slate-300">Network</p>
+              <p className="text-xs">All operations on Arbitrum Sepolia testnet</p>
+            </div>
+          </div>
+          <div className="flex items-start gap-2">
+            <span>⏱️</span>
+            <div>
+              <p className="font-medium text-slate-700 dark:text-slate-300">Processing Time</p>
+              <p className="text-xs">TEE tasks take 1-5 minutes</p>
+            </div>
+          </div>
+          <div className="flex items-start gap-2">
+            <span>⚠️</span>
+            <div>
+              <p className="font-medium text-slate-700 dark:text-slate-300">Important</p>
+              <p className="text-xs">Real Uniswap V3 pool address required</p>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
   );
 }
