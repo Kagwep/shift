@@ -1,5 +1,11 @@
 [
   {
+    "image": "grandpa7pk/shift-tee:0.0.1-tee-scone-5.9.1-v16-prod-7a42ce6eea95",
+    "app": "0x7d7876B63b744ECB663b6E0826c7e0F56AAB7d36",
+    "owner": "0xEA285956afa0B6C560a703a472AD04F32Fa9B9e3",
+    "date": "2026-02-04T17:39:09.967Z"
+  },
+  {
     "image": "grimm658/shift-tee:0.0.1-tee-scone-5.9.1-v16-prod-ade39fc40c4d",
     "app": "0xBB0dAc8bf20068162B20f4F2C6806F0D64cd9D73",
     "owner": "0x9E2d2c2522a904EF07DC61F88D189833476D4A58",

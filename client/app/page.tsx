@@ -2,11 +2,8 @@
 
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { Wallet } from 'ethers';
-import { executeRebalance } from '../lib/iexec';
 import RebalanceModal, { RebalanceFormData } from '@/components/RebalanceFormData';
 import TaskStatus from '../components/TaskStatus';
-import { IExecDataProtector } from '@iexec/dataprotector';
 import { getDataProtectorCoreClient } from './externals/dataProtectorClient';
 import { useWalletConnection } from './hooks/useWalletConnectionts';
 import { IExec } from 'iexec';
@@ -44,7 +41,7 @@ export default function HomePage() {
 
    const [result, setResult] = useState<any>(null);
    const [zipFiles, setZipFiles] = useState<Record<string, any>>({});
-   const iexec = new IExec({ ethProvider: (window as any).ethereum });
+  
   
 
   const handleOpenRebalance = (e: React.FormEvent) => {

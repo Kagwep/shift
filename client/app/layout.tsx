@@ -6,7 +6,7 @@ import WalletButton from '../components/WalletButton';
 const inter = Inter({ subsets: ['latin'] });
 
 export const metadata: Metadata = {
-  title: 'Shift Protocol - Intelligent Liquidity Management',
+  title: 'Shift Agent - Intelligent Liquidity Management',
   description: 'AI-powered Uniswap V3 rebalancing in a Trusted Execution Environment with real-time volatility predictions',
 };
 
