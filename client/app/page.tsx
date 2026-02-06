@@ -92,7 +92,7 @@ const copyToClipboard = (text:any, id:any) => {
 
      // 1. Fetch App Order (to get the 1 RLC price)
       const result =await (await getDataProtectorCoreClient()).processProtectedData({
-        protectedData: '0xBEbC90aD4498fB473467e4947ab3C6E89FA07F6e',
+        protectedData: protectedDataAddress,
         app: '0x7d7876B63b744ECB663b6E0826c7e0F56AAB7d36',
         args: args,
         maxPrice: 1000000000,

@@ -4,7 +4,6 @@ Copy
 
 # Shift - Autonomous DeFi Portfolio Rebalancing
 
-![Shift Banner](https://shift-black.vercel.app/og-image.png)
 
 **Live Demo:** [https://shift-black.vercel.app/](https://shift-black.vercel.app/)
 
