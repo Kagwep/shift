@@ -1,7 +1,4 @@
 
-Readme · MD
-Copy
-
 # Shift - Autonomous DeFi Portfolio Rebalancing
 
 
