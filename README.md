@@ -18,7 +18,7 @@ Shift combines on-chain liquidity management with off-chain AI inference to auto
 
 - 🤖 **AI-Powered Predictions** - ONNX-based volatility forecasting for crypto pairs
 - 🔒 **Secure Execution** - Rebalancing runs in iExec Trusted Execution Environments
-- ⚡ **Autonomous Rebalancing** - Automated position management based on ML signals
+- ⚡ **Autonomous Rebalancing** - Automated Uniswap position management based on ML signals
 - 🌐 **Multi-Chain Support** - Built on Arbitrum Sepolia testnet
 - 📊 **Real-Time Analytics** - Live market data from Binance API
 
@@ -41,7 +41,7 @@ Shift combines on-chain liquidity management with off-chain AI inference to auto
 │                     │        |  Shift-TEE                  │
 │  (ML Inference)     │───────▶│  (Rebalancing Logic)       │
 │                     │        │                             │
-│ • Volatility Model  │        │ • Position Analysis         │
+│ • Volatility Model  │        │ • Uniswap Position Analysis │
 │ • ONNX Runtime      │        │ • Rebalancing Execution     │
 │ • Market Data       │        │ • Parameter Comparison      │
 └─────────────────────┘        └─────────────────────────────┘
@@ -249,6 +249,22 @@ Configuration is managed via `iapp.config.json` in each TEE directory.
 3. **Decision Making** - Shift-TEE compares predicted metrics against user-defined parameters
 4. **Execution** - If rebalancing conditions are met, the agent executes position adjustments
 5. **Verification** - All operations run in TEE for verifiable, secure computation
+
+## 🔒 Protected Data Address
+
+The following protected data structure should be submitted to iExec for secure TEE execution:
+
+```json
+{
+  "privateKey": "yourprivatekey",
+  "providerUrl": "https://your/rpc",
+  "chainId": 421614,
+  "nftManagerAddress": "",
+  "tokenAAddress": "",
+  "tokenBAddress": "",
+  "poolAddress": ""
+}
+```
 
 ## 🎯 Roadmap
 
