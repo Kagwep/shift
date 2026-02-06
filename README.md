@@ -12,12 +12,12 @@ Shift is an autonomous DeFi portfolio management system that leverages machine l
 
 ## 🎯 Overview
 
-Shift combines on-chain liquidity management with off-chain AI inference to automatically optimize your DeFi positions. The system monitors market volatility using trained ML models running in iExec TEE and executes rebalancing strategies when conditions warrant intervention.
+Shift combines on-chain liquidity management with off-chain AI inference to automatically optimize your DeFi positions. The system monitors market volatility using trained ML model, executes rebalancing strategies when conditions warrant intervention.
 
 ### Key Features
 
 - 🤖 **AI-Powered Predictions** - ONNX-based volatility forecasting for crypto pairs
-- 🔒 **Secure Execution** - All inference runs in iExec Trusted Execution Environments
+- 🔒 **Secure Execution** - Rebalancing runs in iExec Trusted Execution Environments
 - ⚡ **Autonomous Rebalancing** - Automated position management based on ML signals
 - 🌐 **Multi-Chain Support** - Built on Arbitrum Sepolia testnet
 - 📊 **Real-Time Analytics** - Live market data from Binance API
@@ -38,8 +38,8 @@ Shift combines on-chain liquidity management with off-chain AI inference to auto
             │                              │
             ▼                              ▼
 ┌─────────────────────┐        ┌─────────────────────────────┐
-│   Shift-Agent-TEE   │        │       Shift-TEE             │
-│  (ML Inference)     │───────▶│  (Rebalancing Logic)        │
+│                     │        |  Shift-TEE                  │
+│  (ML Inference)     │───────▶│  (Rebalancing Logic)       │
 │                     │        │                             │
 │ • Volatility Model  │        │ • Position Analysis         │
 │ • ONNX Runtime      │        │ • Rebalancing Execution     │
