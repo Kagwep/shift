@@ -480,7 +480,7 @@ const copyToClipboard = (text:any, id:any) => {
           <div className="bg-white dark:bg-slate-800 rounded-2xl p-8 text-center max-w-sm shadow-2xl">
             <div className="animate-spin h-12 w-12 border-4 border-indigo-600 border-t-transparent rounded-full mx-auto mb-4"></div>
             <h3 className="text-xl font-bold mb-2">Requesting Enclave...</h3>
-            <p className="text-sm text-slate-500">Signing worker order and allocating TEE hardware.</p>
+            {/* <p className="text-sm text-slate-500">Signing worker order and allocating TEE hardware.</p> */}
           </div>
         </div>
       )}
