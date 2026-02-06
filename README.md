@@ -11,6 +11,8 @@ Shift is an autonomous DeFi portfolio management system that leverages machine l
 
 ## 🎯 Overview
 
+DeFi liquidity providers struggle to manage volatile positions in 24/7 markets. Manual rebalancing is impractical, while existing automated solutions require trust in centralized services and lack predictive intelligence to optimize returns.
+
 Shift combines on-chain liquidity management with off-chain AI inference to automatically optimize your DeFi positions. The system monitors market volatility using trained ML model, executes rebalancing strategies when conditions warrant intervention.
 
 ### Key Features
@@ -264,6 +266,13 @@ The following protected data structure should be submitted to iExec for secure T
   "poolAddress": ""
 }
 ```
+## 🧪 Testing & Sample Data
+
+### Sample Protected Data Address
+`0xBEbC90aD4498fB473467e4947ab3C6E89FA07F6e`
+
+### Sample App Address
+`0x7d7876B63b744ECB663b6E0826c7e0F56AAB7d36`
 
 ## 🎯 Roadmap
 
@@ -279,7 +288,7 @@ The following protected data structure should be submitted to iExec for secure T
 - [ ] Mainnet deployment
 - [ ] Advanced ML models (sentiment analysis, momentum indicators)
 - [ ] Gas optimization strategies
-- [ ] Mobile app
+- [ ] TEE inference integration
 - [ ] Risk management dashboard
 
 ## 🤝 Contributing
